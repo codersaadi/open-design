@@ -30,6 +30,7 @@ import {
   toolPackSidecarStamp,
 } from "./config/sidecar-stamps.js";
 import { domToPptxBundleResource } from "./dom-to-pptx-resource.js";
+import { productionInstallEnv } from "./production-install.js";
 import { copyBundledResourceTrees, linuxResources, packBundledDshRuntime } from "./resources/index.js";
 import { copyOptionalVelaCliBinary } from "./vela-cli.js";
 import { electronBuilderVersionForAppVersion, readRuntimeAppVersion } from "./versioning/index.js";
@@ -429,30 +430,6 @@ async function runPnpm(
 }
 
 export type ProductionInstallCommand = { command: string; args: string[]; env: NodeJS.ProcessEnv };
-
-// pnpm re-exports every setting it resolves from the `.npmrc` cascade —
-// including a developer's `~/.npmrc` — into its lifecycle children as
-// `npm_config_*` variables. npm reads that prefix as its highest-precedence
-// `cli`/`env` config layer and refuses those settings for a project-scoped
-// install, so a config that is perfectly valid for interactive use aborts this
-// install with EALLOWSCRIPTS before a single dependency is unpacked.
-// `allow-scripts=…` is the common trigger and is unreachable from the
-// file layer for exactly the same reason, so the isolation has to happen here.
-// The assembled app is installed from repository inputs alone, which makes the
-// install a function of the repository rather than of the machine running it.
-const AMBIENT_PACKAGE_MANAGER_ENV_PREFIXES = ["npm_config_", "pnpm_config_"] as const;
-
-export function productionInstallEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const isolated: NodeJS.ProcessEnv = {};
-  for (const [key, value] of Object.entries(env)) {
-    const normalizedKey = key.toLowerCase();
-    if (AMBIENT_PACKAGE_MANAGER_ENV_PREFIXES.some((prefix) => normalizedKey.startsWith(prefix))) {
-      continue;
-    }
-    isolated[key] = value;
-  }
-  return isolated;
-}
 
 // Picks the package manager used to materialize the assembled-app node_modules
 // during writeAssembledApp. The default (`npm`) preserves host behavior for

@@ -54,6 +54,9 @@ vi.mock("@open-design/sidecar", async (importOriginal) => {
 });
 
 import type { ToolPackConfig } from "@/config/index.js";
+import macCommandsSource from "@/mac/commands.ts?raw";
+import { productionInstallEnv } from "@/production-install.js";
+import winAppSource from "@/win/app.ts?raw";
 import {
   buildDockerArgs,
   cleanupPackedLinuxNamespace,
@@ -64,7 +67,6 @@ import {
   renderDesktopTemplate,
   renderLinuxAppImageAppRun,
   renderLinuxPackagedMainEntry,
-  productionInstallEnv,
   resolveLinuxLifecycleMode,
   resolveProductionInstallCommand,
   shouldRejectLinuxHeadlessInspectOptions,
@@ -533,11 +535,11 @@ describe("stopPackedLinuxApp", () => {
 });
 
 describe("productionInstallEnv", () => {
-  // Regression: pnpm re-exports the developer's `~/.npmrc` into lifecycle
-  // children as `npm_config_*`. npm classifies that prefix as its cli/env
-  // config layer and rejects it for project-scoped installs, so the packaged
-  // build died with EALLOWSCRIPTS on any machine whose npm config was valid
-  // for interactive use. See `resolveProductionInstallCommand` callers below.
+  // Regression (#8535): pnpm re-exports the developer's `~/.npmrc` into
+  // lifecycle children as `npm_config_*`. npm classifies that prefix as its
+  // cli/env config layer and rejects it for project-scoped installs, so the
+  // packaged build died with EALLOWSCRIPTS on any machine whose npm config was
+  // valid for interactive use. All three platform installs share the helper.
   it("drops the ambient npm config that npm refuses in a project-scoped install", () => {
     expect(productionInstallEnv({ npm_config_allow_scripts: "@anthropic-ai/claude-code" }))
       .toEqual({});
@@ -564,6 +566,20 @@ describe("productionInstallEnv", () => {
       OD_TOOLS_PACK_PNPM_BIN: "/tmp/pnpm",
       PATH: "/usr/bin",
     });
+  });
+
+  // The npm fallback that #8535 tripped is not linux-only: the mac and win
+  // assembled-app installs ran with inherited process.env too. Source-text
+  // assertions keep all three call sites on the shared helper without needing
+  // a darwin/windows host to execute them.
+  it("routes the mac assembled-app install through the isolated environment", () => {
+    expect(macCommandsSource).toContain("env: productionInstallEnv(process.env)");
+    expect(macCommandsSource).toContain("import { productionInstallEnv } from \"../production-install.js\";");
+  });
+
+  it("routes the win assembled-app install through the isolated environment", () => {
+    expect(winAppSource).toContain("env: productionInstallEnv(process.env)");
+    expect(winAppSource).toContain("import { productionInstallEnv } from \"../production-install.js\";");
   });
 });
 
