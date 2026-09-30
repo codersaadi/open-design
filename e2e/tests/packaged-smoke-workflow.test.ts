@@ -3146,6 +3146,8 @@ process.stdin.on("end", () => {
       "https://releases.example/linux.AppImage",
     ]);
   });
+
+  it("[P1] keeps download actions on a partial beta card without claiming latest promotion", async () => {
     const payload = await renderFeishuBuildCard({
       MAC_ARM64_URL: "https://releases.example/beta-mac.dmg",
       RELEASE_NOTE: "共享 beta/latest 版本高于 main，本次仅发布版本化快照。",
