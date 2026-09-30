@@ -94,6 +94,12 @@ jobs:
     with:
       enable_mac_arm64: true
       enable_win_x64: true
+      # Linux desktop delivery rides this lane. Every other channel leaves the
+      # AppImage behind an opt-in switch, so without this the channel has no
+      # Linux package to offer at all. Linux keeps its default `core` smoke
+      # mode, which is what makes the AppImage's startup path a validated one
+      # rather than the first place a user meets it.
+      enable_linux_x64: true
       force: ${{ needs.resolve.outputs.force == 'true' }}
       promote: ${{ needs.resolve.outputs.promote == 'true' }}
       ref: ${{ needs.resolve.outputs.ref }}
@@ -152,6 +158,9 @@ jobs:
           WIN_X64_SMOKE_RESULT: ${{ needs.build.outputs.win_x64_smoke_result }}
           MAC_ARM64_URL: ${{ needs.build.outputs.mac_arm64_url }}
           WIN_URL: ${{ needs.build.outputs.win_x64_url }}
+          # The card renders a Linux download button from this URL and nothing
+          # else; feishu.ts skips the button when it is empty.
+          LINUX_URL: ${{ needs.build.outputs.linux_x64_url }}
           STREAM_LABEL: "每日定时"
           REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

@@ -306,6 +306,9 @@ on:
       win_x64_smoke_result:
         description: "Windows x64 packaged smoke outcome; advisory to publication."
         value: ${{ jobs.build_win_x64.outputs.smoke_result }}
+      linux_x64_smoke_result:
+        description: "Linux x64 AppImage smoke outcome; advisory to publication."
+        value: ${{ jobs.build_linux_x64.outputs.smoke_result }}
       mac_x64_url:
         description: "macOS x64 dmg download URL."
         value: ${{ jobs.publish.outputs.mac_x64_url }}
@@ -1429,6 +1432,11 @@ jobs:
     needs: metadata
     if: ${{ inputs.enable_linux_x64 }}
     runs-on: ubuntu-latest
+    # This job's build step runs the AppImage smoke too (RELEASE_SMOKE_MODE), so
+    # its outcome is the platform's smoke result, the way the mac/Windows jobs
+    # take theirs from a dedicated smoke step.
+    outputs:
+      smoke_result: ${{ steps.linux_x64_smoke.outcome }}
     env:
       RELEASE_COMMIT: ${{ needs.metadata.outputs.commit }}
     steps:
@@ -1459,6 +1467,7 @@ jobs:
           sudo apt-get install -y xvfb
 
       - name: Build beta linux_x64
+        id: linux_x64_smoke
         env:
           BUILD_JSON_PATH: ${{ runner.temp }}/release-build/linux_x64/build.json
           BUILD_LOG_PATH: ${{ runner.temp }}/release-build/linux_x64/build.log

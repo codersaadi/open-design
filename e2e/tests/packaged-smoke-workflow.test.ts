@@ -3091,7 +3091,7 @@ process.stdin.on("end", () => {
 
   it("[P1] keeps download actions on a beta card with a failed Windows smoke", async () => {
     // notify-daily-feishu.yml is the only lane left that renders through
-    // feishu.ts, and it is the one that forwards the two smoke results.
+    // feishu.ts, and it is the one that forwards the three smoke results.
     const payload = await renderFeishuBuildCard({
       MAC_ARM64_SMOKE_RESULT: "success",
       MAC_ARM64_URL: "https://releases.example/mac.dmg",
@@ -3116,7 +3116,36 @@ process.stdin.on("end", () => {
     ]);
   });
 
-  it("[P1] keeps download actions on a partial beta card without claiming latest promotion", async () => {
+  it("[P1] surfaces a failed Linux smoke on the beta card without dropping its AppImage", async () => {
+    // Linux is the newest platform on the daily lane, and its AppImage smoke is
+    // the only check that catches a package which installs but never boots, so
+    // the card has to name it rather than let the download button imply health.
+    const payload = await renderFeishuBuildCard({
+      MAC_ARM64_SMOKE_RESULT: "success",
+      MAC_ARM64_URL: "https://releases.example/mac.dmg",
+      WIN_X64_SMOKE_RESULT: "success",
+      WIN_URL: "https://releases.example/windows.exe",
+      LINUX_X64_SMOKE_RESULT: "failure",
+      LINUX_URL: "https://releases.example/linux.AppImage",
+    });
+    const card = payload.card as {
+      elements: Array<{ actions?: Array<{ url?: string }>; text?: { content?: string } }>;
+      header: { template?: string; title?: { content?: string } };
+    };
+
+    expect(card.header).toMatchObject({
+      template: "orange",
+      title: { content: expect.stringContaining("Linux x64 smoke 失败") },
+    });
+    expect(card.elements.map((element) => element.text?.content).filter(Boolean)).toContain(
+      "**Smoke 告警**\n- Linux x64 smoke 失败\n\n产物已继续发布，可通过下方链接下载。",
+    );
+    expect(card.elements.flatMap((element) => element.actions ?? []).map((action) => action.url)).toEqual([
+      "https://releases.example/mac.dmg",
+      "https://releases.example/windows.exe",
+      "https://releases.example/linux.AppImage",
+    ]);
+  });
     const payload = await renderFeishuBuildCard({
       MAC_ARM64_URL: "https://releases.example/beta-mac.dmg",
       RELEASE_NOTE: "共享 beta/latest 版本高于 main，本次仅发布版本化快照。",

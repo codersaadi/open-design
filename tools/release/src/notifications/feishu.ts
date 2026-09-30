@@ -25,6 +25,7 @@
 //   RELEASE_NOTE          optional operator-facing explanation for a partial release
 //   MAC_ARM64_SMOKE_RESULT macOS arm64 packaged smoke outcome (success | failure | skipped)
 //   WIN_X64_SMOKE_RESULT  Windows x64 packaged smoke outcome (success | failure | skipped)
+//   LINUX_X64_SMOKE_RESULT Linux x64 AppImage smoke outcome (success | failure | skipped)
 //   STREAM_LABEL          human label for the trigger (e.g. "release 分支推送" / "每日定时")
 //   REPO                  owner/name
 //   RUN_URL               link back to the GitHub Actions run
@@ -86,6 +87,7 @@ const smokeFailures = packagePublished
   ? [
       { failureText: "macOS arm64 smoke 失败", result: optional("MAC_ARM64_SMOKE_RESULT") },
       { failureText: "Windows x64 smoke 失败", result: optional("WIN_X64_SMOKE_RESULT") },
+      { failureText: "Linux x64 smoke 失败", result: optional("LINUX_X64_SMOKE_RESULT") },
     ]
       .filter((entry) => entry.result === "failure")
       .map((entry) => entry.failureText)

@@ -4,6 +4,17 @@ import { join } from "node:path";
 export type NodePtyRuntimePlatform = "darwin" | "win32";
 export type NodePtyRuntimeArch = "arm64" | "x64";
 
+// Linux is deliberately absent from the platform union. The prebuild contract
+// below exists because darwin needs an executable `spawn-helper` beside
+// `pty.node`, while `src/unix/pty.cc` consumes `helperPath` only inside
+// `#if defined(__APPLE__)` — Linux forks the PTY directly and win32 uses the
+// conpty binaries. Linux's runtime need is just `build/Release/pty.node`, which
+// the production install compiles from source (pnpm's `onlyBuiltDependencies`
+// includes node-pty and the npm package ships no linux prebuild), so this
+// validator has nothing platform-specific to assert there. Verified on Arch:
+// the packaged Electron-as-Node runtime loads the compiled `pty.node` and
+// spawns a working PTY (2026-09).
+
 export interface NodePtyRuntimeOptions {
   appRoot: string;
   arch: NodePtyRuntimeArch;
