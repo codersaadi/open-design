@@ -64,6 +64,7 @@ import {
   renderDesktopTemplate,
   renderLinuxAppImageAppRun,
   renderLinuxPackagedMainEntry,
+  productionInstallEnv,
   resolveLinuxLifecycleMode,
   resolveProductionInstallCommand,
   shouldRejectLinuxHeadlessInspectOptions,
@@ -531,11 +532,47 @@ describe("stopPackedLinuxApp", () => {
   });
 });
 
+describe("productionInstallEnv", () => {
+  // Regression: pnpm re-exports the developer's `~/.npmrc` into lifecycle
+  // children as `npm_config_*`. npm classifies that prefix as its cli/env
+  // config layer and rejects it for project-scoped installs, so the packaged
+  // build died with EALLOWSCRIPTS on any machine whose npm config was valid
+  // for interactive use. See `resolveProductionInstallCommand` callers below.
+  it("drops the ambient npm config that npm refuses in a project-scoped install", () => {
+    expect(productionInstallEnv({ npm_config_allow_scripts: "@anthropic-ai/claude-code" }))
+      .toEqual({});
+  });
+
+  it("strips every npm/pnpm config export, case-insensitively", () => {
+    expect(productionInstallEnv({
+      NPM_CONFIG_REGISTRY: "https://registry.example.test/",
+      NPM_CONFIG_ALLOW_SCRIPTS: "@anthropic-ai/claude-code",
+      npm_config_node_gyp: "/x/node-gyp.js",
+      npm_config_user_agent: "pnpm/10.33.2",
+      pnpm_config_verify_deps_before_run: "false",
+    })).toEqual({});
+  });
+
+  it("preserves the environment the install still needs to run", () => {
+    expect(productionInstallEnv({
+      HOME: "/home/dev",
+      OD_TOOLS_PACK_PNPM_BIN: "/tmp/pnpm",
+      PATH: "/usr/bin",
+      npm_config_overrides: "{}",
+    })).toEqual({
+      HOME: "/home/dev",
+      OD_TOOLS_PACK_PNPM_BIN: "/tmp/pnpm",
+      PATH: "/usr/bin",
+    });
+  });
+});
+
 describe("resolveProductionInstallCommand", () => {
   it("defaults to npm install --omit=dev --no-package-lock when OD_TOOLS_PACK_PNPM_BIN is unset", () => {
     expect(resolveProductionInstallCommand({})).toEqual({
       command: "npm",
       args: ["install", "--omit=dev", "--no-package-lock"],
+      env: {},
     });
   });
 
@@ -543,7 +580,16 @@ describe("resolveProductionInstallCommand", () => {
     expect(resolveProductionInstallCommand({ OD_TOOLS_PACK_PNPM_BIN: "" })).toEqual({
       command: "npm",
       args: ["install", "--omit=dev", "--no-package-lock"],
+      env: { OD_TOOLS_PACK_PNPM_BIN: "" },
     });
+  });
+
+  it("runs the install without the ambient package-manager config", () => {
+    const resolved = resolveProductionInstallCommand({
+      HOME: "/home/dev",
+      npm_config_allow_scripts: "@anthropic-ai/claude-code",
+    });
+    expect(resolved.env).toEqual({ HOME: "/home/dev" });
   });
 
   it("uses OD_TOOLS_PACK_PNPM_BIN with hoisted-layout pnpm flags when set", () => {
@@ -555,6 +601,7 @@ describe("resolveProductionInstallCommand", () => {
     ).toEqual({
       command: "/tmp/pnpm",
       args: ["install", "--prod", "--no-lockfile", "--config.node-linker=hoisted"],
+      env: { OD_TOOLS_PACK_PNPM_BIN: "/tmp/pnpm" },
     });
   });
 
@@ -571,6 +618,7 @@ describe("resolveProductionInstallCommand", () => {
     expect(resolved).toEqual({
       command: "/tmp/pnpm",
       args: ["install", "--prod", "--no-lockfile", "--config.node-linker=hoisted"],
+      env: { OD_TOOLS_PACK_PNPM_BIN: "/tmp/pnpm" },
     });
     expect(resolved.command).not.toBe("npm");
   });
